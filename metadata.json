@@ -1,0 +1,5 @@
+{
+	"name": "ScribeAI",
+	"description": "An intelligent voice-to-text editor that uses Gemini to transcribe, grammar check, and polish your dictated notes in real-time.",
+	"requestFramePermissions": ["microphone"]
+}

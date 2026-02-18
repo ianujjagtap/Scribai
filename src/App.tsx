@@ -1,6 +1,6 @@
+import { useSpeechToText } from "@mazka/react-speech-to-text";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSpeechToText } from "@mazka/react-speech-to-text";
 import { AIPanel } from "./components/ai-panel";
 import { Editor } from "./components/editor";
 import { FloatingToolbar } from "./components/floating-toolbar";
@@ -17,7 +17,7 @@ const STORAGE_KEY = "scribe_ai_notes";
 
 function App() {
 	const [currentText, setCurrentText] = useState("");
-	const [isRecording, setIsRecording] = useState(false);
+
 	const [notes, setNotes] = useState<Note[]>([]);
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const [suggestions, setSuggestions] = useState<GrammarSuggestion[]>([]);
@@ -32,17 +32,12 @@ function App() {
 	}, []);
 
 	// biome-ignore lint/suspicious/noExplicitAny: library does not export strict types for some parts
-	const {
-		isListening,
-		startListening,
-		stopListening,
-		error,
-		results,
-	} = useSpeechToText({
-		continuous: true,
-		interimResults: true,
-		language: "en-US",
-	});
+	const { isListening, startListening, stopListening, error, results } =
+		useSpeechToText({
+			continuous: true,
+			interimResults: true,
+			language: "en-US",
+		});
 
 	// Sync speech results to editor text
 	// Actually, let's implement the logic with the ref inside the component body
@@ -72,7 +67,9 @@ function App() {
 			if (error.code === "no-speech") {
 				showNotification("No speech detected. Stopped.");
 			} else if (error.code === "network") {
-				showNotification("Network error. Please check your internet connection.");
+				showNotification(
+					"Network error. Please check your internet connection.",
+				);
 			} else if (error.code === "not-allowed") {
 				showNotification("Microphone permission denied.");
 			} else {
@@ -101,96 +98,96 @@ function App() {
 		}
 	}, [isListening, startListening, stopListening]);
 
-const handleAnalyze = async () => {
-	if (!currentText.trim()) return;
-	setIsAnalyzing(true);
-	setSuggestions([]);
-	try {
-		const results = await checkGrammarAndStyle(currentText);
-		setSuggestions(results);
-		if (results.length === 0) {
-			showNotification("Text looks good!");
+	const handleAnalyze = async () => {
+		if (!currentText.trim()) return;
+		setIsAnalyzing(true);
+		setSuggestions([]);
+		try {
+			const results = await checkGrammarAndStyle(currentText);
+			setSuggestions(results);
+			if (results.length === 0) {
+				showNotification("Text looks good!");
+			}
+		} catch (_error) {
+			showNotification("Analysis failed.");
+		} finally {
+			setIsAnalyzing(false);
 		}
-	} catch (_error) {
-		showNotification("Analysis failed.");
-	} finally {
-		setIsAnalyzing(false);
-	}
-};
+	};
 
-const handleRewrite = async (tone: Tone) => {
-	if (!currentText.trim()) return;
-	setIsRewriting(true);
-	setSuggestions([]);
-	try {
-		const suggestion = await rewriteText(currentText, tone);
-		setSuggestions([suggestion]);
-		showNotification("Rewrite suggestion ready");
-	} catch (_error) {
-		showNotification("Rewrite failed.");
-	} finally {
-		setIsRewriting(false);
-	}
-};
+	const handleRewrite = async (tone: Tone) => {
+		if (!currentText.trim()) return;
+		setIsRewriting(true);
+		setSuggestions([]);
+		try {
+			const suggestion = await rewriteText(currentText, tone);
+			setSuggestions([suggestion]);
+			showNotification("Rewrite suggestion ready");
+		} catch (_error) {
+			showNotification("Rewrite failed.");
+		} finally {
+			setIsRewriting(false);
+		}
+	};
 
-const applySuggestion = (suggestion: GrammarSuggestion) => {
-	if (suggestion.type === "rewrite") {
-		setCurrentText(suggestion.correction);
-	} else {
-		setCurrentText((prev) =>
-			prev.replace(suggestion.original, suggestion.correction),
-		);
-	}
-	setSuggestions((prev) => prev.filter((s) => s !== suggestion));
-};
+	const applySuggestion = (suggestion: GrammarSuggestion) => {
+		if (suggestion.type === "rewrite") {
+			setCurrentText(suggestion.correction);
+		} else {
+			setCurrentText((prev) =>
+				prev.replace(suggestion.original, suggestion.correction),
+			);
+		}
+		setSuggestions((prev) => prev.filter((s) => s !== suggestion));
+	};
 
-const saveNote = async () => {
-	if (!currentText.trim()) return;
+	const saveNote = async () => {
+		if (!currentText.trim()) return;
 
-	if (activeNoteId) {
-		setNotes((prev) =>
-			prev.map((n) =>
-				n.id === activeNoteId ? { ...n, content: currentText } : n,
-			),
-		);
-		showNotification("Saved");
-	} else {
-		const title = await generateTitle(currentText);
-		const newNote: Note = {
-			id: Date.now().toString(),
-			title,
-			content: currentText,
-			createdAt: Date.now(),
-		};
-		setNotes((prev) => [newNote, ...prev]);
-		setActiveNoteId(newNote.id);
-		showNotification("Note created");
-	}
-};
+		if (activeNoteId) {
+			setNotes((prev) =>
+				prev.map((n) =>
+					n.id === activeNoteId ? { ...n, content: currentText } : n,
+				),
+			);
+			showNotification("Saved");
+		} else {
+			const title = await generateTitle(currentText);
+			const newNote: Note = {
+				id: Date.now().toString(),
+				title,
+				content: currentText,
+				createdAt: Date.now(),
+			};
+			setNotes((prev) => [newNote, ...prev]);
+			setActiveNoteId(newNote.id);
+			showNotification("Note created");
+		}
+	};
 
-const createNewNote = () => {
-	setCurrentText("");
-	setActiveNoteId(null);
-	setSuggestions([]);
-	setSidebarOpen(false);
-};
+	const createNewNote = () => {
+		setCurrentText("");
+		setActiveNoteId(null);
+		setSuggestions([]);
+		setSidebarOpen(false);
+	};
 
-const loadNote = (note: Note) => {
-	setCurrentText(note.content);
-	setActiveNoteId(note.id);
-	setSuggestions([]);
-	setSidebarOpen(false);
-};
+	const loadNote = (note: Note) => {
+		setCurrentText(note.content);
+		setActiveNoteId(note.id);
+		setSuggestions([]);
+		setSidebarOpen(false);
+	};
 
-const deleteNote = (e: React.MouseEvent, id: string) => {
-	e.stopPropagation();
-	setNotes((prev) => prev.filter((n) => n.id !== id));
-	if (activeNoteId === id) {
-		createNewNote();
-	}
-};
+	const deleteNote = (e: React.MouseEvent, id: string) => {
+		e.stopPropagation();
+		setNotes((prev) => prev.filter((n) => n.id !== id));
+		if (activeNoteId === id) {
+			createNewNote();
+		}
+	};
 
-return (
+	return (
 		<div className="flex h-screen bg-black text-zinc-100 overflow-hidden font-sans selection:bg-zinc-800 selection:text-white">
 			<Sidebar
 				sidebarOpen={sidebarOpen}
@@ -220,7 +217,7 @@ return (
 							<Editor
 								value={currentText}
 								onChange={setCurrentText}
-								isRecording={isRecording}
+								isRecording={isListening}
 							/>
 						</div>
 						{/* Bottom spacing for toolbar */}
@@ -237,7 +234,7 @@ return (
 				</main>
 
 				<FloatingToolbar
-					isRecording={isRecording}
+					isRecording={isListening}
 					toggleRecording={toggleRecording}
 					handleAnalyze={handleAnalyze}
 					isAnalyzing={isAnalyzing}

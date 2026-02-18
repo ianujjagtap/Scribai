@@ -1,8 +1,8 @@
+import { useGSAP } from "@gsap/react";
 import { useSpeechToText } from "@mazka/react-speech-to-text";
+import gsap from "gsap";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
 import { AIPanel } from "./components/ai-panel";
 import { Editor } from "./components/editor";
 import { FloatingToolbar } from "./components/floating-toolbar";
@@ -33,7 +33,7 @@ function App() {
 		setTimeout(() => setNotification(null), 3000);
 	}, []);
 
-	console.log("currentText",currentText)
+	console.log("currentText", currentText);
 	const { isListening, startListening, stopListening, error, results } =
 		useSpeechToText({
 			continuous: true,

@@ -2,9 +2,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { GrammarSuggestion, Tone } from "../types";
 
 const getAIClient = () => {
-	const apiKey = process.env.API_KEY;
+	const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 	if (!apiKey) {
-		throw new Error("API Key not found in environment variables");
+		throw new Error("VITE_GEMINI_API_KEY not found in environment variables");
 	}
 	return new GoogleGenAI({ apiKey });
 };

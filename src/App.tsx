@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSpeechToText } from "@mazka/react-speech-to-text";
 import { AIPanel } from "./components/ai-panel";
 import { Editor } from "./components/editor";
 import { FloatingToolbar } from "./components/floating-toolbar";
@@ -11,15 +12,6 @@ import {
 	rewriteText,
 } from "./services/geminiService";
 import type { GrammarSuggestion, Note, Tone } from "./types";
-
-declare global {
-	interface Window {
-		// biome-ignore lint/suspicious/noExplicitAny: SpeechRecognition is not standard
-		SpeechRecognition: any;
-		// biome-ignore lint/suspicious/noExplicitAny: webkitSpeechRecognition is not standard
-		webkitSpeechRecognition: any;
-	}
-}
 
 const STORAGE_KEY = "scribe_ai_notes";
 
@@ -39,186 +31,166 @@ function App() {
 		setTimeout(() => setNotification(null), 3000);
 	}, []);
 
-	// biome-ignore lint/suspicious/noExplicitAny: ref is used for speech recognition
-	const recognitionRef = useRef<any>(null);
+	// biome-ignore lint/suspicious/noExplicitAny: library does not export strict types for some parts
+	const {
+		isListening,
+		startListening,
+		stopListening,
+		error,
+		results,
+	} = useSpeechToText({
+		continuous: true,
+		interimResults: true,
+		language: "en-US",
+	});
+
+	// Sync speech results to editor text
+	// Actually, let's implement the logic with the ref inside the component body
+	const processedResultsCount = useRef(0);
 
 	useEffect(() => {
-		if (
-			!("webkitSpeechRecognition" in window) &&
-			!("SpeechRecognition" in window)
-		) {
-			setNotification("Speech recognition is not supported in this browser.");
-			return;
-		}
+		if (results.length > processedResultsCount.current) {
+			const newResults = results.slice(processedResultsCount.current);
+			const textToAppend = newResults
+				.map((r) => r.transcript)
+				.filter(Boolean)
+				.join(" ");
 
-		const SpeechRecognition =
-			window.SpeechRecognition || window.webkitSpeechRecognition;
-		recognitionRef.current = new SpeechRecognition();
-		recognitionRef.current.continuous = true;
-		recognitionRef.current.interimResults = true;
-		recognitionRef.current.lang = "en-US";
-
-		// biome-ignore lint/suspicious/noExplicitAny: event is not typed
-		recognitionRef.current.onresult = (event: any) => {
-			let finalTranscript = "";
-
-			for (let i = event.resultIndex; i < event.results.length; ++i) {
-				if (event.results[i].isFinal) {
-					finalTranscript += event.results[i][0].transcript;
-				}
-			}
-
-			if (finalTranscript) {
+			if (textToAppend) {
 				setCurrentText((prev) => {
 					const separator = prev.length > 0 && !prev.endsWith(" ") ? " " : "";
-					return prev + separator + finalTranscript;
+					return prev + separator + textToAppend;
 				});
 			}
-		};
+			processedResultsCount.current = results.length;
+		}
+	}, [results]);
 
-		// biome-ignore lint/suspicious/noExplicitAny: event is not typed
-		recognitionRef.current.onerror = (event: any) => {
-			console.log("Speech recognition error:", event.error);
-
-			if (event.error === "no-speech") {
-				setIsRecording(false);
+	// Handle errors from the hook
+	useEffect(() => {
+		if (error) {
+			if (error.code === "no-speech") {
 				showNotification("No speech detected. Stopped.");
-				return;
-			}
-
-			if (event.error === "network") {
-				setIsRecording(false);
-				showNotification("Network error. Check connection.");
-				return;
-			}
-
-			if (event.error === "not-allowed") {
-				setIsRecording(false);
+			} else if (error.code === "network") {
+				showNotification("Network error. Please check your internet connection.");
+			} else if (error.code === "not-allowed") {
 				showNotification("Microphone permission denied.");
-				return;
+			} else {
+				showNotification(`Speech error: ${error.message}`);
 			}
+			stopListening();
+		}
+	}, [error, showNotification, stopListening]);
 
-			setIsRecording(false);
-		};
-
-		recognitionRef.current.onend = () => {
-			setIsRecording(false);
-		};
-
+	useEffect(() => {
 		const saved = localStorage.getItem(STORAGE_KEY);
 		if (saved) {
 			setNotes(JSON.parse(saved));
 		}
-	}, [showNotification]);
+	}, []); // Run once on mount to load notes
 
 	useEffect(() => {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
 	}, [notes]);
 
 	const toggleRecording = useCallback(() => {
-		if (isRecording) {
-			recognitionRef.current?.stop();
-			setIsRecording(false);
+		if (isListening) {
+			stopListening();
 		} else {
-			try {
-				recognitionRef.current?.start();
-				setIsRecording(true);
-			} catch (e) {
-				console.error("Could not start recording:", e);
-			}
+			startListening();
 		}
-	}, [isRecording]);
+	}, [isListening, startListening, stopListening]);
 
-	const handleAnalyze = async () => {
-		if (!currentText.trim()) return;
-		setIsAnalyzing(true);
-		setSuggestions([]);
-		try {
-			const results = await checkGrammarAndStyle(currentText);
-			setSuggestions(results);
-			if (results.length === 0) {
-				showNotification("Text looks good!");
-			}
-		} catch (_error) {
-			showNotification("Analysis failed.");
-		} finally {
-			setIsAnalyzing(false);
+const handleAnalyze = async () => {
+	if (!currentText.trim()) return;
+	setIsAnalyzing(true);
+	setSuggestions([]);
+	try {
+		const results = await checkGrammarAndStyle(currentText);
+		setSuggestions(results);
+		if (results.length === 0) {
+			showNotification("Text looks good!");
 		}
-	};
+	} catch (_error) {
+		showNotification("Analysis failed.");
+	} finally {
+		setIsAnalyzing(false);
+	}
+};
 
-	const handleRewrite = async (tone: Tone) => {
-		if (!currentText.trim()) return;
-		setIsRewriting(true);
-		setSuggestions([]);
-		try {
-			const suggestion = await rewriteText(currentText, tone);
-			setSuggestions([suggestion]);
-			showNotification("Rewrite suggestion ready");
-		} catch (_error) {
-			showNotification("Rewrite failed.");
-		} finally {
-			setIsRewriting(false);
-		}
-	};
+const handleRewrite = async (tone: Tone) => {
+	if (!currentText.trim()) return;
+	setIsRewriting(true);
+	setSuggestions([]);
+	try {
+		const suggestion = await rewriteText(currentText, tone);
+		setSuggestions([suggestion]);
+		showNotification("Rewrite suggestion ready");
+	} catch (_error) {
+		showNotification("Rewrite failed.");
+	} finally {
+		setIsRewriting(false);
+	}
+};
 
-	const applySuggestion = (suggestion: GrammarSuggestion) => {
-		if (suggestion.type === "rewrite") {
-			setCurrentText(suggestion.correction);
-		} else {
-			setCurrentText((prev) =>
-				prev.replace(suggestion.original, suggestion.correction),
-			);
-		}
-		setSuggestions((prev) => prev.filter((s) => s !== suggestion));
-	};
+const applySuggestion = (suggestion: GrammarSuggestion) => {
+	if (suggestion.type === "rewrite") {
+		setCurrentText(suggestion.correction);
+	} else {
+		setCurrentText((prev) =>
+			prev.replace(suggestion.original, suggestion.correction),
+		);
+	}
+	setSuggestions((prev) => prev.filter((s) => s !== suggestion));
+};
 
-	const saveNote = async () => {
-		if (!currentText.trim()) return;
+const saveNote = async () => {
+	if (!currentText.trim()) return;
 
-		if (activeNoteId) {
-			setNotes((prev) =>
-				prev.map((n) =>
-					n.id === activeNoteId ? { ...n, content: currentText } : n,
-				),
-			);
-			showNotification("Saved");
-		} else {
-			const title = await generateTitle(currentText);
-			const newNote: Note = {
-				id: Date.now().toString(),
-				title,
-				content: currentText,
-				createdAt: Date.now(),
-			};
-			setNotes((prev) => [newNote, ...prev]);
-			setActiveNoteId(newNote.id);
-			showNotification("Note created");
-		}
-	};
+	if (activeNoteId) {
+		setNotes((prev) =>
+			prev.map((n) =>
+				n.id === activeNoteId ? { ...n, content: currentText } : n,
+			),
+		);
+		showNotification("Saved");
+	} else {
+		const title = await generateTitle(currentText);
+		const newNote: Note = {
+			id: Date.now().toString(),
+			title,
+			content: currentText,
+			createdAt: Date.now(),
+		};
+		setNotes((prev) => [newNote, ...prev]);
+		setActiveNoteId(newNote.id);
+		showNotification("Note created");
+	}
+};
 
-	const createNewNote = () => {
-		setCurrentText("");
-		setActiveNoteId(null);
-		setSuggestions([]);
-		setSidebarOpen(false);
-	};
+const createNewNote = () => {
+	setCurrentText("");
+	setActiveNoteId(null);
+	setSuggestions([]);
+	setSidebarOpen(false);
+};
 
-	const loadNote = (note: Note) => {
-		setCurrentText(note.content);
-		setActiveNoteId(note.id);
-		setSuggestions([]);
-		setSidebarOpen(false);
-	};
+const loadNote = (note: Note) => {
+	setCurrentText(note.content);
+	setActiveNoteId(note.id);
+	setSuggestions([]);
+	setSidebarOpen(false);
+};
 
-	const deleteNote = (e: React.MouseEvent, id: string) => {
-		e.stopPropagation();
-		setNotes((prev) => prev.filter((n) => n.id !== id));
-		if (activeNoteId === id) {
-			createNewNote();
-		}
-	};
+const deleteNote = (e: React.MouseEvent, id: string) => {
+	e.stopPropagation();
+	setNotes((prev) => prev.filter((n) => n.id !== id));
+	if (activeNoteId === id) {
+		createNewNote();
+	}
+};
 
-	return (
+return (
 		<div className="flex h-screen bg-black text-zinc-100 overflow-hidden font-sans selection:bg-zinc-800 selection:text-white">
 			<Sidebar
 				sidebarOpen={sidebarOpen}

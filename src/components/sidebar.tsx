@@ -33,7 +33,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 				gsap.fromTo(
 					".note-item",
 					{ opacity: 0, x: -20 },
-					{ opacity: 1, x: 0, stagger: 0.05, duration: 0.4, ease: "power2.out" },
+					{
+						opacity: 1,
+						x: 0,
+						stagger: 0.05,
+						duration: 0.4,
+						ease: "power2.out",
+					},
 				);
 			}
 		},

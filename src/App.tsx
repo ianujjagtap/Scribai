@@ -1,6 +1,8 @@
 import { useSpeechToText } from "@mazka/react-speech-to-text";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 import { AIPanel } from "./components/ai-panel";
 import { Editor } from "./components/editor";
 import { FloatingToolbar } from "./components/floating-toolbar";
@@ -31,11 +33,11 @@ function App() {
 		setTimeout(() => setNotification(null), 3000);
 	}, []);
 
-	// biome-ignore lint/suspicious/noExplicitAny: library does not export strict types for some parts
+	console.log("currentText",currentText)
 	const { isListening, startListening, stopListening, error, results } =
 		useSpeechToText({
 			continuous: true,
-			interimResults: true,
+			interimResults: false,
 			language: "en-US",
 		});
 
@@ -187,6 +189,19 @@ function App() {
 		}
 	};
 
+	// Animate main content on load
+	const mainRef = useRef<HTMLDivElement>(null);
+	useGSAP(
+		() => {
+			gsap.fromTo(
+				mainRef.current,
+				{ opacity: 0, y: 20 },
+				{ opacity: 1, y: 0, duration: 0.8, ease: "power3.out", delay: 0.2 },
+			);
+		},
+		{ scope: mainRef },
+	);
+
 	return (
 		<div className="flex h-screen bg-black text-zinc-100 overflow-hidden font-sans selection:bg-zinc-800 selection:text-white">
 			<Sidebar
@@ -200,7 +215,10 @@ function App() {
 			/>
 
 			{/* Main Content */}
-			<div className="flex-1 flex flex-col relative min-w-0 bg-black">
+			<div
+				ref={mainRef}
+				className="flex-1 flex flex-col relative min-w-0 bg-black opacity-0"
+			>
 				<Header
 					setSidebarOpen={setSidebarOpen}
 					activeNoteId={activeNoteId}

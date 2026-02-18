@@ -28,7 +28,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 				{/* Record Button */}
 				<RecordButton isRecording={isRecording} onToggle={toggleRecording} />
 
-				<div className="w-px h-8 bg-zinc-800 mx-2"></div>
+				<div className="w-px h-8 bg-zinc-800 mx-2" />
 
 				{/* Actions */}
 				<div className="flex items-center gap-1 pr-2">

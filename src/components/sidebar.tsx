@@ -1,5 +1,8 @@
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 import { History, Plus, Trash2, X } from "lucide-react";
 import type React from "react";
+import { useRef } from "react";
 import type { Note } from "../types";
 
 interface SidebarProps {
@@ -21,14 +24,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 	activeNoteId,
 	deleteNote,
 }) => {
+	const containerRef = useRef<HTMLDivElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
+
+	useGSAP(
+		() => {
+			if (sidebarOpen) {
+				gsap.fromTo(
+					".note-item",
+					{ opacity: 0, x: -20 },
+					{ opacity: 1, x: 0, stagger: 0.05, duration: 0.4, ease: "power2.out" },
+				);
+			}
+		},
+		{ scope: containerRef, dependencies: [sidebarOpen, notes] },
+	);
+
 	return (
 		<div
+			ref={containerRef}
 			className={`fixed inset-y-0 left-0 z-30 w-72 bg-black border-r border-zinc-900 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0`}
 		>
 			<div className="flex flex-col h-full">
 				<div className="p-5 flex items-center justify-between">
 					<div className="flex items-center gap-2 font-semibold text-white tracking-tight">
-						<div className="w-5 h-5 bg-white rounded-full"></div>
+						<div className="w-5 h-5 bg-white rounded-full" />
 						<span>ScribeAI</span>
 					</div>
 					<button
@@ -51,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 					</button>
 				</div>
 
-				<div className="flex-1 overflow-y-auto px-3 space-y-1">
+				<div ref={listRef} className="flex-1 overflow-y-auto px-3 space-y-1">
 					<div className="text-xs font-medium text-zinc-500 px-3 py-2 uppercase tracking-wider">
 						History
 					</div>
@@ -66,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 							type="button"
 							key={note.id}
 							onClick={() => loadNote(note)}
-							className={`group relative py-2 px-3 rounded-md cursor-pointer transition-colors w-full text-left ${activeNoteId === note.id ? "bg-zinc-900 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
+							className={`note-item group relative py-2 px-3 rounded-md cursor-pointer transition-colors w-full text-left ${activeNoteId === note.id ? "bg-zinc-900 text-white" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"}`}
 						>
 							<div className="truncate text-sm font-medium pr-6">
 								{note.title}

@@ -41,7 +41,10 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 				);
 			}
 		},
-		{ scope: containerRef, dependencies: [isAnalyzing, isRewriting, suggestions.length] },
+		{
+			scope: containerRef,
+			dependencies: [isAnalyzing, isRewriting, suggestions.length],
+		},
 	);
 
 	if (suggestions.length === 0 && !isAnalyzing && !isRewriting) return null;
@@ -72,6 +75,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 			) : (
 				<div className="space-y-2">
 					{suggestions.map((suggestion, idx) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: simple list without stable IDs
 						<div key={idx} className="suggestion-card-item">
 							<SuggestionCard
 								// biome-ignore lint/suspicious/noArrayIndexKey: simple list

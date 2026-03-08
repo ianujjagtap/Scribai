@@ -7,6 +7,7 @@ import { AIPanel } from "./components/ai-panel";
 import { Editor } from "./components/editor";
 import { FloatingToolbar } from "./components/floating-toolbar";
 import { Header } from "./components/header";
+import { InstallPrompt } from "./components/install-prompt";
 import { Sidebar } from "./components/sidebar";
 import {
 	checkGrammarAndStyle,
@@ -268,6 +269,8 @@ function App() {
 					<div className="text-sm font-medium">{notification}</div>
 				</div>
 			)}
+
+			<InstallPrompt />
 		</div>
 	);
 }

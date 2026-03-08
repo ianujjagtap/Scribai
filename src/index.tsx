@@ -4,7 +4,10 @@ import App from "./App";
 
 declare global {
 	interface Window {
-		deferredPrompt?: Event & { prompt?: () => void; userChoice?: Promise<{ outcome: "accepted" | "dismissed" }> };
+		deferredPrompt?: Event & {
+			prompt?: () => void;
+			userChoice?: Promise<{ outcome: "accepted" | "dismissed" }>;
+		};
 	}
 }
 

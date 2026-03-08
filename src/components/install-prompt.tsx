@@ -2,7 +2,13 @@ import { Download, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function InstallPrompt() {
-	const [deferredPrompt, setDeferredPrompt] = useState<Event & { prompt?: () => void; userChoice?: Promise<{ outcome: "accepted" | "dismissed" }> } | null>(null);
+	const [deferredPrompt, setDeferredPrompt] = useState<
+		| (Event & {
+				prompt?: () => void;
+				userChoice?: Promise<{ outcome: "accepted" | "dismissed" }>;
+		  })
+		| null
+	>(null);
 	const [showPrompt, setShowPrompt] = useState(false);
 
 	useEffect(() => {
